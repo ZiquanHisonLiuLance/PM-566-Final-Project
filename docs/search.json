@@ -1,33 +1,5 @@
 [
   {
-    "objectID": "about.html",
-    "href": "about.html",
-    "title": "About",
-    "section": "",
-    "text": "About this site\n\n1 + 1\n\n[1] 2"
-  },
-  {
-    "objectID": "Data Processing.html",
-    "href": "Data Processing.html",
-    "title": "Data Processing",
-    "section": "",
-    "text": "Repository: Harvard Dataverse\n\nDataset title: Replication Data for: Low Transmission of the Globally Dominant Recombinant SARS-CoV-2 XFG variant in Kenya, May–July 2025\n\nDOI: https://doi.org/10.7910/DVN/LJEYL6\n\nYear: 2025 describe the variables and data based on the codebook and readme documents, such as age_years、ct_valu, different symptoms,etc.\nCode\nlibrary(tidyverse)\nlibrary(lubridate)\nlibrary(janitor)\n\nData_xfg_raw &lt;- readr::read_csv(\"/Users/ldh/Library/Mobile Documents/com~apple~CloudDocs/USC PhD/STUDY DOCUMENTS/Fall 2025/PM 566/Final Project/Potential dataset/ALambisia_SARS_COV_2_XFG_Data/Data1_xfg.csv\")\nData_xfg &lt;- Data_xfg_raw %&gt;%\n  janitor::clean_names() %&gt;%\n  mutate(\n    date_collect = lubridate::dmy(date_collect),\n    lineage_group = if_else(\n      stringr::str_starts(nextclade_pango2, \"XFG\"),\n      \"XFG lineage\", \"Other lineages\"\n    ),\n    lineage_group = factor(lineage_group),\n    clinical_status = factor(clinical_status,\n                             levels = c(\"asymptomatic\", \"symptomatic\")),\n    study = factor(study,\n                   levels = c(\"HF\", \"pricos\", \"ResViRe\"))\n  )\nRemoved no observations (all 21 samples retained). Converted date_collect from character to Date using lubridate::dmy(). Recoded Nextclade_pango2 into a two-level lineage_group (XFG vs other). Set factor levels for study, clinical_status, and age_group. No imputation was performed; analyses were limited to complete cases for each model."
-  },
-  {
-    "objectID": "Data Processing.html#age-distribution",
-    "href": "Data Processing.html#age-distribution",
-    "title": "Data Processing",
-    "section": "Age distribution",
-    "text": "Age distribution\n\n\nCode\n# 画出 age_years 的分布，看样本龄结构\n\nggplot(Data_xfg, aes(x = age_years)) +\ngeom_histogram(\nbins = 8,\nfill = \"#2E86AB\",\nalpha = 0.8,\ncolor = \"white\"\n) +\nlabs(\ntitle = \"Age distribution of SARS-CoV-2 positive participants\",\nx = \"Age (years)\",\ny = \"Count\"\n) +\ntheme_minimal()"
-  },
-  {
-    "objectID": "Data Processing.html#number-of-reported-symptoms-per-participant",
-    "href": "Data Processing.html#number-of-reported-symptoms-per-participant",
-    "title": "Data Processing",
-    "section": "Number of reported symptoms per participant",
-    "text": "Number of reported symptoms per participant\n\n\nCode\n# 先把所有症状变量挑出来，计算每人报告了多少种 \"Yes\"\n\nsymptom_vars &lt;- c(\n\"sys_cough\", \"sys_headache\", \"sys_runny_nose\",\n\"sys_sore_throat\", \"sys_chestpain\", \"sys_fever\"\n)\n\nsymptom_counts &lt;- Data_xfg %&gt;%\nmutate(\nn_symptoms = rowSums(across(all_of(symptom_vars),\n~ .x == \"Yes\",\n.names = \"tmp\"), na.rm = TRUE)\n)\n\nggplot(symptom_counts, aes(x = n_symptoms)) +\ngeom_bar(fill = \"#F39C12\", alpha = 0.8) +\nlabs(\ntitle = \"Number of reported symptoms per participant\",\nx = \"Number of symptoms\",\ny = \"Count\"\n) +\ntheme_minimal()"
-  },
-  {
     "objectID": "index.html",
     "href": "index.html",
     "title": "Low Transmission of the SARS-CoV-2 XFG Variant in Coastal Kenya",
@@ -75,5 +47,26 @@
     "title": "Low Transmission of the SARS-CoV-2 XFG Variant in Coastal Kenya",
     "section": "Symptom profiles across studies",
     "text": "Symptom profiles across studies\n\n\nCode\n# ---- Symptom profiles across studies ----\n# This code chunk creates a descriptive bar plot showing,\n# for each participating study (HF, pricos, ResViRe),\n# the proportion of participants reporting each symptom\n# (cough, headache, runny nose, sore throat, chest pain, fever).\n# It is purely descriptive and helps compare symptom patterns\n# across studies for a general audience.\n\n# 1. Reshape symptom variables into a long format ----------------------\n\nsymptom_long &lt;- Data_xfg %&gt;%                                   # start from main dataset\n  dplyr::select(                                               # keep only study + symptom variables\n    study,\n    sys_cough, sys_headache, sys_runny_nose,\n    sys_sore_throat, sys_chestpain, sys_fever\n  ) %&gt;%\n  tidyr::pivot_longer(                                         # convert wide symptom columns to long format\n    cols = starts_with(\"sys_\"),                                # all variables whose names start with \"sys_\"\n    names_to  = \"symptom\",                                     # new column that stores symptom name\n    values_to = \"symptom_present\"                              # new column that stores Yes/No response\n  ) %&gt;%\n  dplyr::mutate(\n    # Give each symptom a short, readable label for plotting\n    symptom = dplyr::recode(\n      symptom,\n      \"sys_cough\"        = \"Cough\",\n      \"sys_headache\"     = \"Headache\",\n      \"sys_runny_nose\"   = \"Runny nose\",\n      \"sys_sore_throat\"  = \"Sore throat\",\n      \"sys_chestpain\"    = \"Chest pain\",\n      \"sys_fever\"        = \"Fever\"\n    ),\n    # Recode Yes/No into 1/0 so we can compute proportions easily\n    symptom_present = dplyr::if_else(\n      symptom_present == \"Yes\",                                # if the original value is \"Yes\"\n      1L,                                                      # code as 1 (symptom present)\n      dplyr::if_else(\n        symptom_present == \"No\",                               # if the original value is \"No\"\n        0L,                                                    # code as 0 (symptom absent)\n        NA_integer_                                           # otherwise keep as missing\n      )\n    )\n  )\n\n# 2. Calculate the proportion with each symptom within each study -----\n\nsymptom_summary &lt;- symptom_long %&gt;%\n  dplyr::filter(!is.na(symptom_present)) %&gt;%                   # drop rows with missing Yes/No\n  dplyr::group_by(study, symptom) %&gt;%                          # group by study and symptom type\n  dplyr::summarise(\n    n          = dplyr::n(),                                   # total number of participants in this group\n    n_symptom  = sum(symptom_present),                         # count with symptom present (value == 1)\n    prop_symptom = n_symptom / n                              # proportion with the symptom\n  ) %&gt;%\n  dplyr::ungroup()                                             # remove grouping to avoid side effects later\n\n# 3. Make a faceted bar plot of symptom proportions by study ----------\n\np_symptom_study &lt;- ggplot(\n  symptom_summary,                                             # use summary data frame for plotting\n  aes(\n    x = study,                                                 # x-axis: study (HF, pricos, ResViRe)\n    y = prop_symptom                                           # y-axis: proportion with the symptom\n  )\n) +\n  geom_col(                                                    # draw solid bars (columns)\n    fill  = \"#1B9E77\",                                         # choose a single calm color for all bars\n    alpha = 0.8                                                # slightly transparent for a softer look\n  ) +\n  scale_y_continuous(                                          # format y-axis as percentages\n    labels = scales::percent_format(accuracy = 1)              # show values like 40%\n  ) +\n  labs(\n    title   = \"Symptom profiles across participating studies\", # main title\n    x       = \"Study\",                                         # x-axis label\n    y       = \"Participants with symptom\",                     # y-axis label\n    caption = \"Each bar shows the proportion of participants within each study reporting the symptom.\\nSample sizes are small, so percentages should be interpreted with caution.\"\n  ) +\n  facet_wrap(~ symptom, nrow = 2) +                            # create small panels for each symptom\n  theme_minimal() +                                            # clean, minimal theme\n  theme(\n    plot.title = element_text(face = \"bold\", size = 14),       # emphasize plot title\n    strip.text = element_text(face = \"bold\"),                  # bold facet labels (symptom names)\n    axis.text.x = element_text(angle = 0, hjust = 0.5)         # keep study labels horizontal for readability\n  )\n\np_symptom_study                                                 # print the plot to the report"
+  },
+  {
+    "objectID": "Data Processing.html",
+    "href": "Data Processing.html",
+    "title": "Data Processing",
+    "section": "",
+    "text": "Repository: Harvard Dataverse\n\nDataset title: Replication Data for: Low Transmission of the Globally Dominant Recombinant SARS-CoV-2 XFG variant in Kenya, May–July 2025\n\nDOI: https://doi.org/10.7910/DVN/LJEYL6\n\nYear: 2025 describe the variables and data based on the codebook and readme documents, such as age_years、ct_valu, different symptoms,etc.\nCode\nlibrary(tidyverse)\nlibrary(lubridate)\nlibrary(janitor)\n\nData_xfg_raw &lt;- readr::read_csv(\"/Users/ldh/Library/Mobile Documents/com~apple~CloudDocs/USC PhD/STUDY DOCUMENTS/Fall 2025/PM 566/Final Project/Potential dataset/ALambisia_SARS_COV_2_XFG_Data/Data1_xfg.csv\")\nData_xfg &lt;- Data_xfg_raw %&gt;%\n  janitor::clean_names() %&gt;%\n  mutate(\n    date_collect = lubridate::dmy(date_collect),\n    lineage_group = if_else(\n      stringr::str_starts(nextclade_pango2, \"XFG\"),\n      \"XFG lineage\", \"Other lineages\"\n    ),\n    lineage_group = factor(lineage_group),\n    clinical_status = factor(clinical_status,\n                             levels = c(\"asymptomatic\", \"symptomatic\")),\n    study = factor(study,\n                   levels = c(\"HF\", \"pricos\", \"ResViRe\"))\n  )\nRemoved no observations (all 21 samples retained). Converted date_collect from character to Date using lubridate::dmy(). Recoded Nextclade_pango2 into a two-level lineage_group (XFG vs other). Set factor levels for study, clinical_status, and age_group. No imputation was performed; analyses were limited to complete cases for each model."
+  },
+  {
+    "objectID": "Data Processing.html#age-distribution",
+    "href": "Data Processing.html#age-distribution",
+    "title": "Data Processing",
+    "section": "Age distribution",
+    "text": "Age distribution\n\n\nCode\n# 画出 age_years 的分布，看样本龄结构\n\nggplot(Data_xfg, aes(x = age_years)) +\ngeom_histogram(\nbins = 8,\nfill = \"#2E86AB\",\nalpha = 0.8,\ncolor = \"white\"\n) +\nlabs(\ntitle = \"Age distribution of SARS-CoV-2 positive participants\",\nx = \"Age (years)\",\ny = \"Count\"\n) +\ntheme_minimal()"
+  },
+  {
+    "objectID": "Data Processing.html#number-of-reported-symptoms-per-participant",
+    "href": "Data Processing.html#number-of-reported-symptoms-per-participant",
+    "title": "Data Processing",
+    "section": "Number of reported symptoms per participant",
+    "text": "Number of reported symptoms per participant\n\n\nCode\n# 先把所有症状变量挑出来，计算每人报告了多少种 \"Yes\"\n\nsymptom_vars &lt;- c(\n\"sys_cough\", \"sys_headache\", \"sys_runny_nose\",\n\"sys_sore_throat\", \"sys_chestpain\", \"sys_fever\"\n)\n\nsymptom_counts &lt;- Data_xfg %&gt;%\nmutate(\nn_symptoms = rowSums(across(all_of(symptom_vars),\n~ .x == \"Yes\",\n.names = \"tmp\"), na.rm = TRUE)\n)\n\nggplot(symptom_counts, aes(x = n_symptoms)) +\ngeom_bar(fill = \"#F39C12\", alpha = 0.8) +\nlabs(\ntitle = \"Number of reported symptoms per participant\",\nx = \"Number of symptoms\",\ny = \"Count\"\n) +\ntheme_minimal()"
   }
 ]

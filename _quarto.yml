@@ -10,12 +10,10 @@ website:
         text: Home
       - href: "Data Processing.qmd"
         text: Data Processing
-      - href: about.qmd
-        text: About
 
 format:
   html:
-    theme: cosmo
+    theme: pulse
     css: styles.css
     toc: true
 
