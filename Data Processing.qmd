@@ -1,0 +1,89 @@
+---
+title: "Data Processing"
+author: "Ziquan 'Harrison' Liu"
+format:
+  html:
+    code-fold: true
+---
+- Repository: Harvard Dataverse  
+- Dataset title: *Replication Data for: Low Transmission of the Globally Dominant Recombinant SARS-CoV-2 XFG variant in Kenya, May–July 2025*  
+- DOI: https://doi.org/10.7910/DVN/LJEYL6  
+- Year: 2025 
+describe the variables and data based on the codebook and readme documents, such as age_years、ct_valu, different symptoms,etc.
+
+
+```{r load-data-processing}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+
+Data_xfg_raw <- readr::read_csv("/Users/ldh/Library/Mobile Documents/com~apple~CloudDocs/USC PhD/STUDY DOCUMENTS/Fall 2025/PM 566/Final Project/Potential dataset/ALambisia_SARS_COV_2_XFG_Data/Data1_xfg.csv")
+Data_xfg <- Data_xfg_raw %>%
+  janitor::clean_names() %>%
+  mutate(
+    date_collect = lubridate::dmy(date_collect),
+    lineage_group = if_else(
+      stringr::str_starts(nextclade_pango2, "XFG"),
+      "XFG lineage", "Other lineages"
+    ),
+    lineage_group = factor(lineage_group),
+    clinical_status = factor(clinical_status,
+                             levels = c("asymptomatic", "symptomatic")),
+    study = factor(study,
+                   levels = c("HF", "pricos", "ResViRe"))
+  )
+```
+Removed no observations (all 21 samples retained).
+Converted date_collect from character to Date using lubridate::dmy().
+Recoded Nextclade_pango2 into a two-level lineage_group (XFG vs other).
+Set factor levels for study, clinical_status, and age_group.
+No imputation was performed; analyses were limited to complete cases for each model.
+
+# Exploratory plots
+## Age distribution  
+```{r}
+# 画出 age_years 的分布，看样本龄结构
+
+ggplot(Data_xfg, aes(x = age_years)) +
+geom_histogram(
+bins = 8,
+fill = "#2E86AB",
+alpha = 0.8,
+color = "white"
+) +
+labs(
+title = "Age distribution of SARS-CoV-2 positive participants",
+x = "Age (years)",
+y = "Count"
+) +
+theme_minimal()
+
+```
+
+## Number of reported symptoms per participant
+```{r}
+# 先把所有症状变量挑出来，计算每人报告了多少种 "Yes"
+
+symptom_vars <- c(
+"sys_cough", "sys_headache", "sys_runny_nose",
+"sys_sore_throat", "sys_chestpain", "sys_fever"
+)
+
+symptom_counts <- Data_xfg %>%
+mutate(
+n_symptoms = rowSums(across(all_of(symptom_vars),
+~ .x == "Yes",
+.names = "tmp"), na.rm = TRUE)
+)
+
+ggplot(symptom_counts, aes(x = n_symptoms)) +
+geom_bar(fill = "#F39C12", alpha = 0.8) +
+labs(
+title = "Number of reported symptoms per participant",
+x = "Number of symptoms",
+y = "Count"
+) +
+theme_minimal()
+
+```
+
