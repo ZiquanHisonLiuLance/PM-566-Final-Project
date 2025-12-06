@@ -17,7 +17,7 @@ library(tidyverse)
 library(lubridate)
 library(janitor)
 
-Data_xfg_raw <- readr::read_csv("/Users/ldh/Library/Mobile Documents/com~apple~CloudDocs/USC PhD/STUDY DOCUMENTS/Fall 2025/PM 566/Final Project/Potential dataset/ALambisia_SARS_COV_2_XFG_Data/Data1_xfg.csv")
+Data_xfg_raw <- readr::read_csv("/Users/ldh/Library/Mobile Documents/com~apple~CloudDocs/USC PhD/STUDY DOCUMENTS/Fall 2025/PM 566/Final Project/PM 566 Final Project/PM-566-Final-Project/data/Data1_xfg.csv")
 Data_xfg <- Data_xfg_raw %>%
   janitor::clean_names() %>%
   mutate(
@@ -42,48 +42,81 @@ No imputation was performed; analyses were limited to complete cases for each mo
 # Exploratory plots
 ## Age distribution  
 ```{r}
-# 画出 age_years 的分布，看样本龄结构
+# 这个 chunk 画出年龄分布（直方图），
+
+# 帮助我们大致了解 21 个样本的年龄结构。
 
 ggplot(Data_xfg, aes(x = age_years)) +
 geom_histogram(
-bins = 8,
-fill = "#2E86AB",
+bins  = 8,            # 分 8 个区间，样本只有 21 个，区间不用太多
+fill  = "#2E86AB",
 alpha = 0.8,
 color = "white"
 ) +
 labs(
 title = "Age distribution of SARS-CoV-2 positive participants",
-x = "Age (years)",
-y = "Count"
+x     = "Age (years)",
+y     = "Number of participants"
 ) +
 theme_minimal()
+
 
 ```
 
 ## Number of reported symptoms per participant
 ```{r}
-# 先把所有症状变量挑出来，计算每人报告了多少种 "Yes"
+# 这个 chunk 计算每个参与者报告了多少种症状，
+
+# 然后画出症状数目的分布（0~6 个症状）。
+
+# 逻辑是：对每一个症状变量，看它是否等于 "Yes"，再按行求和。
+
+# 1. 列出所有症状变量的列名
 
 symptom_vars <- c(
-"sys_cough", "sys_headache", "sys_runny_nose",
-"sys_sore_throat", "sys_chestpain", "sys_fever"
+"sys_cough",
+"sys_headache",
+"sys_runny_nose",
+"sys_sore_throat",
+"sys_chestpain",
+"sys_fever"
 )
+
+# 2. 对每个症状变量生成 TRUE/FALSE 指示，并按行求和
 
 symptom_counts <- Data_xfg %>%
 mutate(
-n_symptoms = rowSums(across(all_of(symptom_vars),
+# 把每个症状变量转成 TRUE/FALSE：Yes = TRUE, 其他 = FALSE
+across(
+all_of(symptom_vars),
 ~ .x == "Yes",
-.names = "tmp"), na.rm = TRUE)
+.names = "flag_{.col}"
+),
+# 对所有 flag_ 开头的列按行求和，得到每人有多少个 "Yes"
+n_symptoms = rowSums(
+across(starts_with("flag_")),
+na.rm = TRUE
+)
 )
 
+# 3. 画出每位参与者的症状数量分布
+
 ggplot(symptom_counts, aes(x = n_symptoms)) +
-geom_bar(fill = "#F39C12", alpha = 0.8) +
+geom_bar(
+fill  = "#F39C12",
+alpha = 0.8
+) +
+scale_x_continuous(
+breaks = 0:6,
+minor_breaks = NULL
+) +
 labs(
 title = "Number of reported symptoms per participant",
-x = "Number of symptoms",
-y = "Count"
+x     = "Number of symptoms reported",
+y     = "Number of participants"
 ) +
 theme_minimal()
+
 
 ```
 
