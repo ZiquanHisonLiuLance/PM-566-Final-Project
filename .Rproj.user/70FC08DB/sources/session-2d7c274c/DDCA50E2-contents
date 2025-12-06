@@ -1,0 +1,122 @@
+---
+title: "Data Processing"
+author: "Ziquan 'Harrison' Liu"
+format:
+  html:
+    code-fold: true
+---
+- Repository: Harvard Dataverse  
+- Dataset title: *Replication Data for: Low Transmission of the Globally Dominant Recombinant SARS-CoV-2 XFG variant in Kenya, May–July 2025*  
+- DOI: https://doi.org/10.7910/DVN/LJEYL6  
+- Year: 2025 
+describe the variables and data based on the codebook and readme documents, such as age_years、ct_valu, different symptoms,etc.
+
+
+```{r load-data-processing}
+library(tidyverse)
+library(lubridate)
+library(janitor)
+
+Data_xfg_raw <- readr::read_csv("/Users/ldh/Library/Mobile Documents/com~apple~CloudDocs/USC PhD/STUDY DOCUMENTS/Fall 2025/PM 566/Final Project/PM 566 Final Project/PM-566-Final-Project/data/Data1_xfg.csv")
+Data_xfg <- Data_xfg_raw %>%
+  janitor::clean_names() %>%
+  mutate(
+    date_collect = lubridate::dmy(date_collect),
+    lineage_group = if_else(
+      stringr::str_starts(nextclade_pango2, "XFG"),
+      "XFG lineage", "Other lineages"
+    ),
+    lineage_group = factor(lineage_group),
+    clinical_status = factor(clinical_status,
+                             levels = c("asymptomatic", "symptomatic")),
+    study = factor(study,
+                   levels = c("HF", "pricos", "ResViRe"))
+  )
+```
+Removed no observations (all 21 samples retained).
+Converted date_collect from character to Date using lubridate::dmy().
+Recoded Nextclade_pango2 into a two-level lineage_group (XFG vs other).
+Set factor levels for study, clinical_status, and age_group.
+No imputation was performed; analyses were limited to complete cases for each model.
+
+# Exploratory plots
+## Age distribution  
+```{r}
+# 这个 chunk 画出年龄分布（直方图），
+
+# 帮助我们大致了解 21 个样本的年龄结构。
+
+ggplot(Data_xfg, aes(x = age_years)) +
+geom_histogram(
+bins  = 8,            # 分 8 个区间，样本只有 21 个，区间不用太多
+fill  = "#2E86AB",
+alpha = 0.8,
+color = "white"
+) +
+labs(
+title = "Age distribution of SARS-CoV-2 positive participants",
+x     = "Age (years)",
+y     = "Number of participants"
+) +
+theme_minimal()
+
+
+```
+
+## Number of reported symptoms per participant
+```{r}
+# 这个 chunk 计算每个参与者报告了多少种症状，
+
+# 然后画出症状数目的分布（0~6 个症状）。
+
+# 逻辑是：对每一个症状变量，看它是否等于 "Yes"，再按行求和。
+
+# 1. 列出所有症状变量的列名
+
+symptom_vars <- c(
+"sys_cough",
+"sys_headache",
+"sys_runny_nose",
+"sys_sore_throat",
+"sys_chestpain",
+"sys_fever"
+)
+
+# 2. 对每个症状变量生成 TRUE/FALSE 指示，并按行求和
+
+symptom_counts <- Data_xfg %>%
+mutate(
+# 把每个症状变量转成 TRUE/FALSE：Yes = TRUE, 其他 = FALSE
+across(
+all_of(symptom_vars),
+~ .x == "Yes",
+.names = "flag_{.col}"
+),
+# 对所有 flag_ 开头的列按行求和，得到每人有多少个 "Yes"
+n_symptoms = rowSums(
+across(starts_with("flag_")),
+na.rm = TRUE
+)
+)
+
+# 3. 画出每位参与者的症状数量分布
+
+ggplot(symptom_counts, aes(x = n_symptoms)) +
+geom_bar(
+fill  = "#F39C12",
+alpha = 0.8
+) +
+scale_x_continuous(
+breaks = 0:6,
+minor_breaks = NULL
+) +
+labs(
+title = "Number of reported symptoms per participant",
+x     = "Number of symptoms reported",
+y     = "Number of participants"
+) +
+theme_minimal()
+
+
+```
+
