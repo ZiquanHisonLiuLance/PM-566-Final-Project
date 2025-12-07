@@ -9,13 +9,15 @@ format:
 - Dataset title: *Replication Data for: Low Transmission of the Globally Dominant Recombinant SARS-CoV-2 XFG variant in Kenya, May–July 2025*  
 - DOI: https://doi.org/10.7910/DVN/LJEYL6  
 - Year: 2025 
-describe the variables and data based on the codebook and readme documents, such as age_years、ct_valu, different symptoms,etc.
-
+The replication data package comprises a primary analytic dataset (`Data1_xfg.csv`), a codebook detailing the variables, and a R Markdown script utilized to duplicate the original Table 1. For this project, I downloaded the complete package and stored `Data1_xfg.csv` in the local `data/` directory of the RStudio project (this file is not published to GitHub to maintain data-sharing boundaries).
+The dataset comprises 21 RT-PCR-confirmed SARS-CoV-2 cases gathered between May and July 2025 from three surveillance platforms in coastal Kenya. Each row represents a single participant or sample.
 
 ```{r load-data-processing}
-library(tidyverse)
-library(lubridate)
-library(janitor)
+# Load raw data and perform initial cleaning
+# This chunk reads the raw CSV file, cleans variable names,and creates derived variables needed for later analysis.
+library(tidyverse) # data wrangling and visualization
+library(lubridate) # date handling
+library(janitor) # clean variable names
 
 Data_xfg_raw <- readr::read_csv("/Users/ldh/Library/Mobile Documents/com~apple~CloudDocs/USC PhD/STUDY DOCUMENTS/Fall 2025/PM 566/Final Project/PM 566 Final Project/PM-566-Final-Project/data/Data1_xfg.csv")
 Data_xfg <- Data_xfg_raw %>%
@@ -33,90 +35,123 @@ Data_xfg <- Data_xfg_raw %>%
                    levels = c("HF", "pricos", "ResViRe"))
   )
 ```
-Removed no observations (all 21 samples retained).
-Converted date_collect from character to Date using lubridate::dmy().
-Recoded Nextclade_pango2 into a two-level lineage_group (XFG vs other).
-Set factor levels for study, clinical_status, and age_group.
-No imputation was performed; analyses were limited to complete cases for each model.
+Following the cleaning process, no observations were discarded; all 21 samples were preserved. The variable date_collect was transformed into a Date class with lubridate::dmy(). The lineage variable nextclade_pango2 was reclassified into a more straightforward two-level factor lineage_group (“XFG lineage” vs “Other lineages”). The variables study, clinical_status, and age_group were specifically designated as factors to guarantee uniform ordering in tables and figures. No imputation was conducted.
 
 # Exploratory plots
+This section's charts aim to illustrate the age distribution of participants and the general prevalence of reported symptoms. Due to the limited sample size, these graphs should be interpreted as descriptive representations rather than accurate estimations.
 ## Age distribution  
 ```{r}
-# 这个 chunk 画出年龄分布（直方图），
+# This chunk visualizes the distribution of participant ages (in years).
+# A simple histogram is used due to the small sample size.
 
-# 帮助我们大致了解 21 个样本的年龄结构。
-
-ggplot(Data_xfg, aes(x = age_years)) +
+ggplot(Data_xfg, aes(x = age_years)) + # map age_years to x-axis
 geom_histogram(
-bins  = 8,            # 分 8 个区间，样本只有 21 个，区间不用太多
-fill  = "#2E86AB",
-alpha = 0.8,
-color = "white"
+bins = 8, # choose a small number of bins
+fill = "#2E86AB", # bar color
+alpha = 0.8, # slight transparency
+color = "white" # white borders for readability
 ) +
 labs(
 title = "Age distribution of SARS-CoV-2 positive participants",
-x     = "Age (years)",
-y     = "Number of participants"
+x = "Age (years)",
+y = "Count"
 ) +
 theme_minimal()
 
+# Expected result: a histogram showing how the 21 participants are distributed across age, highlighting the mix of children, adolescents, and adults.
+```
 
+## Sample size by study
+```{r study-sample-size}
+# This chunk summarized how many observations were contributed by each study.
+# It gave context for later stratified analyses.
+
+study_counts <- Data_xfg %>%                 # start from the cleaned dataset
+  dplyr::count(study)                        # count number of rows per study
+
+ggplot(
+  study_counts,
+  aes(
+    x = study,                               # x-axis: HF, pricos, ResViRe
+    y = n                                   # y-axis: number of samples
+  )
+) +
+  geom_col(
+    fill  = "#6C5B7B",                      # bar fill color
+    alpha = 0.85
+  ) +
+  labs(
+    title = "Number of samples by study",
+    x     = "Study",
+    y     = "Sample size (N)"
+  ) +
+  theme_minimal()
+
+# Expected result:A bar chart showing how many participants were included from each study,indicating the relative contribution of HF, pricos, and ResViRe.
 ```
 
 ## Number of reported symptoms per participant
 ```{r}
-# 这个 chunk 计算每个参与者报告了多少种症状，
+# This chunk counts, for each participant, how many different symptoms were reported, and then displays the distribution of this count.
 
-# 然后画出症状数目的分布（0~6 个症状）。
-
-# 逻辑是：对每一个症状变量，看它是否等于 "Yes"，再按行求和。
-
-# 1. 列出所有症状变量的列名
-
+# 1. List the symptom variables to be considered.
 symptom_vars <- c(
-"sys_cough",
-"sys_headache",
-"sys_runny_nose",
-"sys_sore_throat",
-"sys_chestpain",
-"sys_fever"
+"sys_cough", "sys_headache", "sys_runny_nose",
+"sys_sore_throat", "sys_chestpain", "sys_fever"
 )
 
-# 2. 对每个症状变量生成 TRUE/FALSE 指示，并按行求和
-
+# 2. For each participant, count the number of symptoms with value "Yes".
 symptom_counts <- Data_xfg %>%
 mutate(
-# 把每个症状变量转成 TRUE/FALSE：Yes = TRUE, 其他 = FALSE
-across(
-all_of(symptom_vars),
-~ .x == "Yes",
-.names = "flag_{.col}"
-),
-# 对所有 flag_ 开头的列按行求和，得到每人有多少个 "Yes"
 n_symptoms = rowSums(
-across(starts_with("flag_")),
-na.rm = TRUE
+across(
+all_of(symptom_vars),          # apply across the listed symptom variables
+~ .x == "Yes"                  # logical test: TRUE if symptom == "Yes"
+),
+na.rm = TRUE                     # treat NA as 0 when summing
 )
 )
 
-# 3. 画出每位参与者的症状数量分布
-
+# 3. Plot the distribution of the count of reported symptoms.
 ggplot(symptom_counts, aes(x = n_symptoms)) +
 geom_bar(
-fill  = "#F39C12",
+fill  = "#F39C12",                 # bar color
 alpha = 0.8
-) +
-scale_x_continuous(
-breaks = 0:6,
-minor_breaks = NULL
 ) +
 labs(
 title = "Number of reported symptoms per participant",
-x     = "Number of symptoms reported",
-y     = "Number of participants"
+x     = "Number of symptoms",
+y     = "Count"
 ) +
 theme_minimal()
 
-
+# Expected result: a bar chart showing how many participants reported 0, 1, 2, etc symptoms. This helps describe overall symptom burden in the small cohort.
 ```
 
+## Overall Ct value distribution
+```{r ct-distribution}
+# This chunk visualizes the overall distribution of Ct values across all sequenced samples in the dataset.
+
+ct_nonmiss <- Data_xfg %>%                   # start from the cleaned dataset
+  dplyr::filter(!is.na(ct_value))            # keep only records with non-missing Ct values
+
+ggplot(
+  ct_nonmiss,
+  aes(x = ct_value)                          # x-axis: Ct value
+) +
+  geom_histogram(
+    bins  = 8,                               # number of histogram bins
+    fill  = "#3498DB",                       # bar fill color
+    alpha = 0.8,
+    color = "white"                          # bar border color
+  ) +
+  scale_x_reverse() +                        # reverse x-axis so lower Ct appears on the right
+  labs(
+    title = "Distribution of Ct values among sequenced infections",
+    x     = "Ct value (lower = higher viral load)",
+    y     = "Count"
+  ) +
+  theme_minimal()
+
+# Expected result: A histogram summarizing Ct values across all 21 samples, offering a quick overview of viral load levels before stratified analyses.
+```
