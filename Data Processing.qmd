@@ -19,7 +19,7 @@ library(tidyverse) # data wrangling and visualization
 library(lubridate) # date handling
 library(janitor) # clean variable names
 
-Data_xfg_raw <- readr::read_csv("/Users/ldh/Library/Mobile Documents/com~apple~CloudDocs/USC PhD/STUDY DOCUMENTS/Fall 2025/PM 566/Final Project/PM 566 Final Project/PM-566-Final-Project/data/Data1_xfg.csv")
+Data_xfg_raw <- readr::read_csv("data/Data1_xfg.csv")
 Data_xfg <- Data_xfg_raw %>%
   janitor::clean_names() %>%
   mutate(

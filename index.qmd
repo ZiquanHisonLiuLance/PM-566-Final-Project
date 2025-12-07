@@ -36,7 +36,7 @@ library(broom) # convert model objects into tidy data frames
 
 # 1. Read the raw CSV file from the local "data" folder.
 Data_xfg_raw <- readr::read_csv(
-file = "/Users/ldh/Library/Mobile Documents/com~apple~CloudDocs/USC PhD/STUDY DOCUMENTS/Fall 2025/PM 566/Final Project/PM 566 Final Project/PM-566-Final-Project/data/Data1_xfg.csv"  # relative path to the dataset
+file = "data/Data1_xfg.csv"  # relative path to the dataset
 )
 
 # 2. Standardize variable names to lower_snake_cas
