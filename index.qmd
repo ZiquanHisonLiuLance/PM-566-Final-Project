@@ -97,6 +97,7 @@ Clinical status (clinical_status: asymptomatic vs symptomatic)
 Symptom indicators (sys_cough, sys_headache, sys_runny_nose,
 sys_sore_throat, sys_chestpain, sys_fever)
 Only the 21 observations contained in the replication dataset were examined. 
+
 ## 2.2 Statistical analysis
 ```{r}
 # Descriptive baseline table (Table 1)

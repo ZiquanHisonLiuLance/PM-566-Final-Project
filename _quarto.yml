@@ -16,11 +16,12 @@ format:
     theme: pulse
     css: styles.css
     toc: true
+    embed-resources: true
 
 execute:
   echo: true
   warning: false
   message: false
-  freeze: auto           # 本地先跑好代码，GitHub 上只用静态结果，避免上传数据
+  freeze: false 
 
 
