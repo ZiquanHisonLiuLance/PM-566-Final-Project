@@ -1,0 +1,27 @@
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "PM 566 Final Project"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Home
+      - href: "Data Processing.qmd"
+        text: Data Processing
+
+format:
+  html:
+    theme: pulse
+    css: styles.css
+    toc: true
+    embed-resources: true
+
+execute:
+  echo: true
+  warning: false
+  message: false
+  freeze: false 
+
+

@@ -28,6 +28,7 @@ library(arsenal) # tableby(): create publication-style descriptive tables
 library(kableExtra) # additional styling for HTML tables
 library(plotly) # turn ggplot figures into interactive graphics
 library(broom) # convert model objects into tidy data frames
+library(ggalluvial)   # for alluvial (flow) diagram
 ```
 
 ```{r}
@@ -52,7 +53,7 @@ date_collect = lubridate::dmy(date_collect)  # dmy() = day-month-year
 # 4. Create a simplified lineage variable with two levels: "XFG lineage" vs "Other lineages".
 Data_xfg <- Data_xfg %>%
 mutate(
-# nextclade_pango2 是原始的 lineage 变量
+# nextclade_pango2 is origianl varibale
 lineage_group = if_else(
 stringr::str_starts(nextclade_pango2, "XFG"),  # check if lineage begins with "XFG"
 "XFG lineage",                                 # label as XFG if TRUE
@@ -142,9 +143,41 @@ height = "500px"         # allow vertical scrolling if table is long
 tab1_kable   # print Table 1 to the report
 # Expected result: an HTML table summarizing demographics, Ct values, lineage, clinical status, and symptoms by study (HF, pricos, ResViRe).
 ```
+The 21 PCR-confirmed SARS-CoV-2 infections encompassed a broad age spectrum and comprised both males and females.   Each of the three surveillance platforms (HF, pricos, and ResViRe) contributed a limited number of participants; thus, all study-specific summaries should be regarded as illustrative rather than exact estimations. In several studies, the majority of subjects indicated experiencing at least one respiratory symptom, including cough, sore throat, or rhinorrhea.  Cycle threshold (Ct) values exhibited a wide range, signifying considerable variance in viral RNA levels at the time of sampling.  Lineage classifications exhibited heterogeneity, with merely a portion of samples allocated to the XFG recombinant lineage.
 
-## 2.3 Visualisation strategy
+
+## 2.3 Visualisation strategy: derived variables and symptom burden
 The primary visual representations were generated with ggplot2 for static graphics and plotly.  The specific outputs referring to results section.
+```{r derived_symptom_vars}
+# This chunk creates additional derived variables used in later figures:
+## 1) n_symptoms: number of reported symptoms per participant.
+## 2) any_symptom: indicator for having at least one symptom.
+# These are descriptive constructs and are not used for formal inference.
+
+# List of symptom variables to be counted
+symptom_vars <- c(
+  "sys_cough", "sys_headache", "sys_runny_nose",
+  "sys_sore_throat", "sys_chestpain", "sys_fever"
+)
+
+Data_xfg <- Data_xfg %>%
+  dplyr::mutate(
+    # Count how many symptoms are reported as "Yes" for each participant
+    n_symptoms = rowSums(
+      dplyr::across(
+        dplyr::all_of(symptom_vars),
+        ~ .x == "Yes"                   # TRUE if symptom present
+      ),
+      na.rm = TRUE                      # treat missing as 0 when summing
+    ),
+    # Simple indicator for having at least one symptom
+    any_symptom = dplyr::if_else(
+      n_symptoms > 0,
+      1L,                               # 1 = reported at least one symptom
+      0L                                # 0 = no listed symptoms reported
+    )
+  )
+```
 
 # 3. Results
 ## 3.1 Lineage distribution across studies (Interactive)
@@ -453,6 +486,152 @@ p_symptom_study                                                 # print the plot
 # The anticipated outcome is a grid of bar charts, each representing a symptom and comparing the proportion of participants exhibiting that symptom throughout the three investigations.
 ```
 Among the three surveillance platforms, cough, headache, and fever were often reported by the limited number of participants, although chest pain was infrequently observed. Patterns vary among investigations; for instance, respiratory symptoms are more prevalent in the pricos and ResViRe trials compared to HF. However, these discrepancies are derived from limited sample sizes and should be understood intuitively rather than numerically.
+
+## 3.6 Age and viral load patterns
+```{r results_age_ct_scatter}
+# This chunk explores the relationship between age and Ct value
+# (a crude proxy for viral RNA load), coloured by clinical status.
+
+age_ct_data <- Data_xfg %>%
+  dplyr::filter(!is.na(age_years), !is.na(ct_value))
+
+ggplot(
+  age_ct_data,
+  aes(
+    x     = age_years,
+    y     = ct_value,
+    colour = clinical_status,
+    shape  = lineage_group
+  )
+) +
+  geom_point(size = 2.5, alpha = 0.8) +
+  scale_y_reverse() +  # lower Ct (higher viral load) at the top
+  labs(
+    title = "Age and Ct values by clinical status and lineage",
+    x     = "Age (years)",
+    y     = "Ct value (lower = higher viral load)",
+    colour = "Clinical status",
+    shape  = "Lineage group"
+  ) +
+  theme_minimal()
+```
+In this limited sample, infections manifest across a wide age spectrum, and no discernible correlation exists between age and Ct values. Individuals of all ages may have either low or high Ct levels, and there is significant overlap between symptomatic and asymptomatic infections. Due to the restricted number of observations and the lack of formal modeling for age, these findings should be regarded as qualitative illustrations rather than definitive proof for or against age-related variations in viral RNA levels.
+
+## 3.7 Symptom profiles by lineage group
+```{r}
+# This chunk compares symptom profiles between the XFG lineage and other lineages.
+# It mirrors Section 3.5 but now stratifies by lineage_group rather than study.
+
+symptom_lineage <- Data_xfg %>%
+  dplyr::select(lineage_group, dplyr::all_of(symptom_vars)) %>%
+  tidyr::pivot_longer(
+    cols      = dplyr::all_of(symptom_vars),
+    names_to  = "symptom",
+    values_to = "present"
+  ) %>%
+  dplyr::filter(!is.na(present)) %>%
+  dplyr::mutate(
+    symptom = dplyr::recode(
+      symptom,
+      "sys_cough"        = "Cough",
+      "sys_headache"     = "Headache",
+      "sys_runny_nose"   = "Runny nose",
+      "sys_sore_throat"  = "Sore throat",
+      "sys_chestpain"    = "Chest pain",
+      "sys_fever"        = "Fever"
+    ),
+    present = dplyr::if_else(
+      present == "Yes", 1L,
+      dplyr::if_else(present == "No", 0L, NA_integer_)
+    )
+  ) %>%
+  dplyr::group_by(lineage_group, symptom) %>%
+  dplyr::summarise(
+    n           = dplyr::n(),
+    n_present   = sum(present),
+    prop_present = n_present / n,
+    .groups     = "drop"
+  )
+
+ggplot(
+  symptom_lineage,
+  aes(
+    x    = symptom,
+    y    = prop_present,
+    fill = lineage_group
+  )
+) +
+  geom_col(
+    position = position_dodge(width = 0.75),
+    width    = 0.7
+  ) +
+  scale_y_continuous(
+    labels = scales::percent_format(accuracy = 1)
+  ) +
+  labs(
+    title = "Symptom profiles for XFG versus other lineages",
+    x     = "Symptom",
+    y     = "Participants with symptom",
+    fill  = "Lineage group"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 30, hjust = 1),
+    plot.title  = element_text(face = "bold")
+  )
+```
+This graphic compared the symptom patterns of infections linked to the XFG lineage with those resulting from other SARS-CoV-2 lineages.  Each bar illustrated the percentage of participants within a lineage group who reported a certain symptom, with XFG and non-XFG infections presented adjacent to one another for each symptom. The data indicated largely analogous clinical manifestations: cough, headache, and fever are prevalent in both cohorts, although chest discomfort is infrequently documented.
+
+
+## 3.8 Flow from study to lineage group to clinical status
+```{r alluvial-study-lineage-status, message=FALSE, warning=FALSE}
+# This chunk visualizes how participants "flow" from study -> lineage group -> clinical status using an alluvial (Sankey-style) diagram.
+
+# 1. Summarize counts for each combination of study, lineage_group, and clinical_status
+alluvial_dat <- Data_xfg %>%
+  dplyr::count(study, lineage_group, clinical_status, name = "n")
+
+# 2. Draw the alluvial diagram
+ggplot(
+  alluvial_dat,
+  aes(
+    axis1 = study,
+    axis2 = lineage_group,
+    axis3 = clinical_status,
+    y     = n
+  )
+) +
+  ggalluvial::geom_alluvium(
+    aes(fill = lineage_group),
+    width  = 0.25,
+    alpha  = 0.8
+  ) +
+  ggalluvial::geom_stratum(
+    width = 0.25,
+    fill  = "grey95",
+    color = "grey40"
+  ) +
+  geom_text(
+    stat  = "stratum",
+    aes(label = after_stat(stratum)),
+    size  = 3
+  ) +
+  scale_x_discrete(
+    limits = c("Study", "Lineage group", "Clinical status"),
+    expand = c(.1, .1)
+  ) +
+  labs(
+    title = "Flow from study to lineage group to clinical status",
+    y     = "Number of participants",
+    x     = "",
+    fill  = "Lineage group"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 14)
+  )
+```
+This alluvial diagram linked each surveillance platform with the viral lineage group and subsequently with clinical state. The width of each band indicates the number of people adhering to that route.  The majority of flows traverse the "Other lineages" category, indicating that XFG constitutes merely a minor proportion of infections in each research.  Both symptomatic and asymptomatic cases are distributed among the lineage groups and studies without a prevailing trend, underscoring that these results are merely descriptive and constrained by the exceedingly small sample size.
 
 # 4. Conclusion and Summary
 This descriptive analysis of 21 SARS-CoV-2 positive samples from coastal Kenya indicated that the XFG recombinant lineage represented a modest proportion of infections across surveillance studies. It implied restricted local transmission throughout the research period. Ct values and symptom profiles exhibited considerable similarity between XFG and non-XFG lineages, as well as between symptomatic and asymptomatic infections, with only weak and highly ambiguous patterns observed in a limited exploratory regression model.
